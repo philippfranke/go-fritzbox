@@ -12,6 +12,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"time"
 	"unicode/utf16"
@@ -124,6 +125,7 @@ func (s *Session) Refresh() error {
 // and an error, if any.
 func computeResponse(challenge, secret string) (string, error) {
 	buf := new(bytes.Buffer)
+	h := md5.New()
 
 	chars := utf16.Encode([]rune(fmt.Sprintf("%s-%s", challenge, secret)))
 
@@ -140,8 +142,8 @@ func computeResponse(challenge, secret string) (string, error) {
 		}
 	}
 
-	hash := md5.Sum(buf.Bytes())
-	r := fmt.Sprintf("%s-%x", challenge, hash)
+	io.Copy(h, buf)
+	r := fmt.Sprintf("%s-%x", challenge, h.Sum(nil))
 
 	return r, nil
 }
