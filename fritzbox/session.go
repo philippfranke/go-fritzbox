@@ -18,15 +18,21 @@ import (
 	"unicode/utf16"
 )
 
-// defaultSid is always invalid and
 const (
-	DefaultSid     = "0000000000000000"
+	// DefaultSid is an invalid session in order to perform and
+	// identify logouts.
+	DefaultSid = "0000000000000000"
+	// DefaultExpires is the amount of time of inactivity before
+	// the FRITZ!Box automatically closes a session.
 	DefaultExpires = 10 * time.Minute
 )
 
-// Various errors the Session might return.
 var (
+	// ErrInvalidCred is the error returned by Auth when
+	// login attempt is not successful.
 	ErrInvalidCred = errors.New("fritzbox: invalid credentials")
+
+	// ErrExpiredSess means that client was too long inactive.
 	ErrExpiredSess = errors.New("fritzbox: session expired")
 )
 
@@ -48,14 +54,15 @@ type Session struct {
 	Expires time.Time `xml:"-"`
 }
 
-// NewSession allocates a session
-func newSession(c *Client) *Session {
+// NewSession returns a new FRITZ!Box session.
+func NewSession(c *Client) *Session {
 	return &Session{
+		Sid:    DefaultSid,
 		client: c,
 	}
 }
 
-// Open retrieves challenge from fritzbox
+// Open retrieves the challenge from FRITZ!Box.
 func (s *Session) Open() error {
 	req, err := s.client.NewRequest("GET", "login_sid.lua", nil)
 	if err != nil {
@@ -70,8 +77,8 @@ func (s *Session) Open() error {
 	return nil
 }
 
-// Auth authenticates with a username and challenge-response
-// It returns an error, if any.
+// Auth sends the Response (Challenge-Response) to the FRITZ!Box and
+// returns an error, if any.
 func (s *Session) Auth(username, password string) error {
 	cr, err := computeResponse(s.Challenge, password)
 	if err != nil {
@@ -91,7 +98,7 @@ func (s *Session) Auth(username, password string) error {
 		return err
 	}
 
-	// Checks whether a login attempt was successfull or not
+	// Is login attempt successful?
 	if s.Sid == DefaultSid {
 		return ErrInvalidCred
 	}
@@ -105,7 +112,7 @@ func (s *Session) Close() {
 	s.Sid = DefaultSid
 }
 
-// IsExpired returns true if s is expired
+// IsExpired returns true if session is expired
 func (s *Session) IsExpired() bool {
 	return s.Expires.Before(time.Now())
 }

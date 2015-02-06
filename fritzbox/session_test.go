@@ -6,72 +6,58 @@
 package fritzbox
 
 import (
-	"encoding/xml"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
-	"net/url"
 	"testing"
 	"time"
 )
 
-var testClient *Client
-
-func init() {
-	testClient = NewClient(nil)
-}
-
-func newTestServer(body string) (*httptest.Server, *url.URL) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, body)
-	}))
-	ts_url, _ := url.Parse(ts.URL)
-	return ts, ts_url
-}
-
 func TestNewSession(t *testing.T) {
-	s := newSession(testClient)
-	if s.client != testClient {
-		t.Errorf("New session: different clients: %v, got %v", testClient, s.client)
+	want := NewClient(nil)
+	s := NewSession(want)
+	if s.client != want {
+		t.Errorf("newSession Client is %v, want %v", s.client, want)
 	}
 }
 
-func TestOpen(t *testing.T) {
-	ts, ts_url := newTestServer(`
-      <SessionInfo>
+func TestSessionOpen(t *testing.T) {
+	setup()
+	defer teardown()
+
+	mux.HandleFunc("/login_sid.lua", func(w http.ResponseWriter, r *http.Request) {
+		if m := "GET"; m != r.Method {
+			t.Errorf("Request method = %v, want %v", r.Method, m)
+		}
+		w.Header().Set("Content-Type", "text/xml")
+		fmt.Fprint(w, `
+			<SessionInfo>
         <SID>0000000000000000</SID>
         <Challenge>1234567z</Challenge>
         <BlockTime>0</BlockTime>
         <Rights/>
       </SessionInfo>`)
-	defer ts.Close()
-	testClient.BaseURL = ts_url
-	s := newSession(testClient)
-	if err := s.Open(); err != nil {
-		t.Errorf("Open session failed: %v", err)
-	}
+	})
 
-	expect := &Session{
-		XMLName: xml.Name{
-			Space: "",
-			Local: "SessionInfo",
-		},
+	s := NewSession(client)
+
+	s.Open()
+
+	want := &Session{
 		Sid:       "0000000000000000",
 		Challenge: "1234567z",
-		BlockTime: 0,
 	}
 
-	if expect.Sid != s.Sid {
-		t.Errorf("Open session failed: %#v, got %#v", expect.Sid, s.Sid)
+	if want.Sid != s.Sid {
+		t.Errorf("OpenSession Sid is %s, want %s", s.Sid, want.Sid)
 	}
 
-	if expect.Challenge != s.Challenge {
-		t.Errorf("Open session failed: %#v, got %#v", expect.Challenge, s.Challenge)
+	if want.Challenge != s.Challenge {
+		t.Errorf("OpenSession Challenge is %s, want %#v", s.Challenge, want.Challenge)
 	}
-
 }
 
-var testAuths = []struct {
+// Auth test cases
+var testsAuth = []struct {
 	Sid      string
 	Password string
 	Error    bool
@@ -88,46 +74,51 @@ var testAuths = []struct {
 	},
 }
 
-func TestAuth(t *testing.T) {
-	for _, auth := range testAuths {
-		ts, ts_url := newTestServer(`
-      <SessionInfo>
-        <SID>` + auth.Sid + `</SID>
+func TestSessionAuth(t *testing.T) {
+
+	for _, want := range testsAuth {
+		setup()
+		defer teardown()
+
+		mux.HandleFunc("/login_sid.lua", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/xml")
+			fmt.Fprint(w, `
+			<SessionInfo>
+        <SID>`+want.Sid+`</SID>
         <Challenge>1234567z</Challenge>
         <BlockTime>0</BlockTime>
         <Rights/>
       </SessionInfo>`)
-		defer ts.Close()
-		testClient.BaseURL = ts_url
+		})
 
 		s := &Session{
-			client:    testClient,
+			client:    client,
 			Sid:       DefaultSid,
 			Challenge: "1234567z",
 			BlockTime: 0,
 		}
 
-		err := s.Auth("Username", auth.Password)
-		if auth.Error {
+		err := s.Auth("Username", want.Password)
+		if want.Error {
 			if err != ErrInvalidCred {
-				t.Errorf("Auth didn't fail: %v, got %v", ErrInvalidCred, err)
+				t.Error("Expected error to be returned")
 			}
-			if s.Sid != auth.Sid {
-				t.Errorf("Auth session failed: %v, got %v", auth.Sid, s.Sid)
+			if s.Sid != want.Sid {
+				t.Errorf("SessionAuth Sid is %s, want %s", s.Sid, want.Sid)
 			}
 		} else {
 			if err != nil {
-				t.Errorf("Auth failed: %v", err)
+				t.Errorf("SessionAuth unexpected error %v", err)
 			}
-			if s.Sid != auth.Sid {
-				t.Errorf("Auth session failed: %v, got %v", auth.Sid, s.Sid)
+			if s.Sid != want.Sid {
+				t.Errorf("SessionAuth Sid is %s, want %s", s.Sid, want.Sid)
 			}
 		}
 
 	}
 }
 
-func TestClose(t *testing.T) {
+func TestSessionClose(t *testing.T) {
 	s := &Session{
 		Sid:       "ff88e4d39354992f",
 		Challenge: "1234567z",
@@ -136,11 +127,12 @@ func TestClose(t *testing.T) {
 
 	s.Close()
 	if s.Sid != DefaultSid {
-		t.Errorf("Session close failed: %s, got %s", DefaultSid, s.Sid)
+		t.Errorf("SessionClose Sid is %s, want %s", s.Sid, DefaultSid)
 	}
 }
 
 func TestIsExpired(t *testing.T) {
+	// TODO: better test
 	s := &Session{
 		Sid:       "ff88e4d39354992f",
 		Challenge: "1234567z",
@@ -149,13 +141,13 @@ func TestIsExpired(t *testing.T) {
 	}
 
 	if !s.IsExpired() {
-		t.Errorf("Session expires failed: %t, got %t", true, s.IsExpired())
+		t.Errorf("SessionExpires isExpired is %t, want %t", s.IsExpired(), true)
 	}
 
 	s.Expires = time.Now().Add(time.Second * 5)
 
 	if s.IsExpired() {
-		t.Errorf("Session expires failed: %t, got %t", false, s.IsExpired())
+		t.Errorf("SessionExpires isExpired is %t, want %t", s.IsExpired(), false)
 	}
 }
 
@@ -164,24 +156,42 @@ func TestRefresh(t *testing.T) {
 	s.Refresh()
 	diff := time.Now().Add(DefaultExpires).Sub(s.Expires)
 	if diff > (500 * time.Microsecond) {
-		t.Errorf("Session refresh failed: %s, got %s, diff %s", time.Now().Add(DefaultExpires), s.Expires, diff)
+		t.Errorf("SessionRefresh Expires is %s, want %s, diff %s", s.Expires, time.Now().Add(DefaultExpires), diff)
 	}
 	s.Expires = time.Now().Add(time.Second * -5)
 	if err := s.Refresh(); err == nil {
-		t.Errorf("Session refresh failed: %v, got %v", ErrExpiredSess, err)
+		t.Error("Expected error to be returned")
 	}
 
 }
 
+// Responses test cases
+var testsChallenge = []struct {
+	Challenge string
+	Password  string
+	Want      string
+}{
+	{
+		Challenge: "1234567z",
+		Password:  "äbc",
+		Want:      "1234567z-9e224a41eeefa284df7bb0f26c2913e2",
+	},
+	{
+		Challenge: "1234567z",
+		Password:  "äbz€",
+		Want:      "1234567z-eefe7c82f8f122671950682d0be94e52",
+	},
+}
+
 func TestComputeResponse(t *testing.T) {
-	r, err := computeResponse("1234567z", "äbc")
-	if err != nil {
-		t.Fatalf("computeResponse failed: %v", err)
-	}
+	for _, c := range testsChallenge {
+		r, err := computeResponse(c.Challenge, c.Password)
+		if err != nil {
+			t.Fatalf("computeResponse unexpected error %v", err)
+		}
 
-	expect := "1234567z-9e224a41eeefa284df7bb0f26c2913e2"
-
-	if r != expect {
-		t.Errorf("computeResponse failed: %s, got %s", expect, r)
+		if r != c.Want {
+			t.Errorf("computeResponse response is %s, want %s", r, c.Want)
+		}
 	}
 }
