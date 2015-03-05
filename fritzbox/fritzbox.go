@@ -147,3 +147,7 @@ func (c *Client) Auth(username, password string) error {
 func (c *Client) Close() {
 	c.session.Close()
 }
+
+func (c *Client) String() string {
+	return c.session.String()
+}

@@ -154,3 +154,7 @@ func computeResponse(challenge, secret string) (string, error) {
 
 	return r, nil
 }
+
+func (s *Session) String() string {
+	return s.Sid
+}
