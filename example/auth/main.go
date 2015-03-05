@@ -6,10 +6,8 @@
 package main
 
 import (
-	"crypto/tls"
 	"fmt"
 	"log"
-	"net/http"
 
 	"github.com/philippfranke/go-fritzbox/fritzbox"
 )
@@ -17,15 +15,7 @@ import (
 func main() {
 	fmt.Printf("Connect to local FRITZ!Box! \n \n")
 
-	// Ignore SSL certificates because it's self-signed
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
-		},
-	}
-	cl := &http.Client{Transport: tr}
-
-	c := fritzbox.NewClient(cl)
+	c := fritzbox.NewClient(nil)
 
 	var username, password string
 
