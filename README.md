@@ -3,8 +3,8 @@
 go-fritzbox is a Go client libary for accessing a FRITZ!Box (>=FRITZ!OS 5.50)
 
 **Documentation:** [![GoDoc](https://godoc.org/github.com/philippfranke/go-fritzbox/fritzbox?status.svg)](https://godoc.org/github.com/philippfranke/go-fritzbox/fritzbox)
+
 **Build Status:** [![Build Status](https://travis-ci.org/philippfranke/go-fritzbox.svg?branch=master)](https://travis-ci.org/philippfranke/go-fritzbox)
-**Test Coverage:** [![Coverage Status](https://coveralls.io/repos/philippfranke/go-fritzbox/badge.svg)](https://coveralls.io/r/philippfranke/go-fritzbox)
 
 go-fritzbox requires Go version 1.1 or greater.
 
@@ -14,7 +14,7 @@ import "github.com/philippfranke/go-fritzbox/fritzbox
 ```
 
 Construct a new FRITZ!Box client, then use auth method in order to log in.
-For example, access Fritz!Box with user "Peter":
+For example, to access Fritz!Box as user "Peter":
 
 ```go
 client := fritzbox.NewClient(nil)
