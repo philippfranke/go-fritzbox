@@ -6,6 +6,8 @@ go-fritzbox is a Go client libary for accessing a FRITZ!Box (>=FRITZ!OS 5.50)
 
 **Build Status:** [![Build Status](https://travis-ci.org/philippfranke/go-fritzbox.svg?branch=master)](https://travis-ci.org/philippfranke/go-fritzbox)
 
+**Test Coverage:** [![Coverage Status](https://coveralls.io/repos/philippfranke/go-fritzbox/badge.svg?branch=master)](https://coveralls.io/r/philippfranke/go-fritzbox?branch=master)
+
 go-fritzbox requires Go version 1.1 or greater.
 
 ## Usage ##
