@@ -31,6 +31,9 @@ type Client struct {
 
 	// Session used to authenticate client
 	session *Session
+
+	// deviceService ...
+	DeviceService *DeviceService
 }
 
 // NewClient returns a new FRITZ!Box client. If a nil httpClient is
@@ -49,6 +52,8 @@ func NewClient(httpClient *http.Client) *Client {
 		client:  httpClient,
 		BaseURL: baseURL,
 	}
+
+	c.DeviceService = &DeviceService{c: c}
 
 	return c
 }
@@ -110,11 +115,17 @@ func (c *Client) Do(req *http.Request, v interface{}) (*http.Response, error) {
 	contentType := resp.Header.Get("Content-Type")
 
 	if v != nil {
-		if strings.Contains(contentType, "text/xml") {
-			err = xml.NewDecoder(resp.Body).Decode(v)
-		}
-		if strings.Contains(contentType, "application/json") {
-			err = json.NewDecoder(resp.Body).Decode(v)
+		if w, ok := v.(io.Writer); ok {
+			_, err = io.Copy(w, resp.Body)
+
+		} else {
+			if strings.Contains(contentType, "text/xml") {
+				err = xml.NewDecoder(resp.Body).Decode(v)
+			}
+			if strings.Contains(contentType, "application/json") {
+				err = json.NewDecoder(resp.Body).Decode(v)
+			}
+
 		}
 	}
 
